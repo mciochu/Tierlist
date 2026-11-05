@@ -2,7 +2,6 @@ package pl.mciochu.tierlist
 
 import android.app.Presentation
 import android.content.Context
-import android.graphics.BitmapFactory
 import android.graphics.Color as AndroidColor
 import android.graphics.Typeface
 import android.view.Display
@@ -134,7 +133,7 @@ class BoardProjection(
                 scaleType = ImageView.ScaleType.CENTER_CROP
                 val path = asset?.posterPath
                 if (path != null) {
-                    val bitmap = runCatching { BitmapFactory.decodeFile(path) }.getOrNull()
+                    val bitmap = runCatching { PosterImages.decode(path, 480, 640) }.getOrNull()
                     if (bitmap != null) setImageBitmap(bitmap)
                 }
                 if (drawable == null) setBackgroundColor(AndroidColor.rgb(48, 51, 59))
