@@ -6,7 +6,7 @@ The Android tablet is the primary and complete device: it stores the anime libra
 
 ## Current status
 
-**Stage 1 — Android project foundation.** The repository now contains a minimal native Android application using Kotlin and Jetpack Compose. The tier-list editor is the next implementation stage.
+**Stage 3 — first interactive editor in progress.** The native Android app, pure Kotlin tier-list engine, undo/redo, and first board screen are in the repository. The current editor is in-memory; library artwork and persistence are later stages.
 
 ## Product principles
 
