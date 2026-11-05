@@ -77,11 +77,11 @@ class LocalBoardStorage(context: Context) {
                     add(
                         PositionChange(
                             animeId = item.getString("animeId"),
-                            fromTierId = item.optString("fromTierId").takeIf { it.isNotEmpty() },
-                            fromTierLabel = item.optString("fromTierLabel").takeIf { it.isNotEmpty() },
+                            fromTierId = if (item.isNull("fromTierId")) null else item.getString("fromTierId"),
+                            fromTierLabel = if (item.isNull("fromTierLabel")) null else item.getString("fromTierLabel"),
                             fromPosition = if (item.isNull("fromPosition")) null else item.optInt("fromPosition"),
-                            toTierId = item.optString("toTierId").takeIf { it.isNotEmpty() },
-                            toTierLabel = item.optString("toTierLabel").takeIf { it.isNotEmpty() },
+                            toTierId = if (item.isNull("toTierId")) null else item.getString("toTierId"),
+                            toTierLabel = if (item.isNull("toTierLabel")) null else item.getString("toTierLabel"),
                             toPosition = if (item.isNull("toPosition")) null else item.optInt("toPosition"),
                             operation = item.optString("operation", "MOVE"),
                             timestamp = item.optLong("timestamp")
