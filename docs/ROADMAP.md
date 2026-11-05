@@ -9,29 +9,41 @@ The project is implemented in small stages. Each stage must be useful on its own
 - [x] Create a native Android project with Kotlin and Jetpack Compose.
 - [x] Add the Gradle Wrapper and pinned build versions.
 - [x] Add a minimal startup screen.
-- [ ] Verify the first Android build and fix any configuration issues.
+- [x] Add a small CI build workflow.
 
-Acceptance: the repository opens in Android Studio and builds a debug APK.
+Acceptance: project files and build configuration are in the repository. Full Android Gradle build confirmation is still pending.
 
 ## Stage 2 — tier-list engine
 
-- [ ] Define the smallest domain model needed for anime, tiers, and placements.
-- [ ] Implement create, add, move, reorder, remove, and tier configuration operations.
-- [ ] Prevent duplicate anime entries in the same list.
-- [ ] Add undo/redo.
-- [ ] Test the engine with plain Kotlin unit tests.
+- [x] Define the smallest domain model needed for anime, tiers, and placements.
+- [x] Implement create, add, move, reorder, remove, and tier configuration operations.
+- [x] Prevent duplicate anime entries in the same list.
+- [x] Add undo/redo.
+- [x] Add six plain Kotlin/JUnit test cases.
+- [x] Run a local Kotlin compiler validation for defaults, add/move/reorder, tier editing/removal, and undo/redo.
 
-Acceptance: tier-list operations are correct and testable without Android UI or a database.
+Acceptance: pure Kotlin operations work independently of Android UI and database. The JUnit task is also wired into GitHub Actions; CI result is pending verification.
 
 ## Stage 3 — first usable editor
 
-- [ ] Render a tier board with configurable S/A/B/C/D/E rows.
-- [ ] Allow tier labels, colors, and order to be changed.
-- [ ] Add temporary sample anime while the library is not implemented.
-- [ ] Support drag-and-drop between rows and reordering inside a row.
-- [ ] Provide clear empty states and basic tablet/phone layouts.
+### 3A — basic board interaction
 
-Acceptance: the user can build and edit a complete in-memory tier list.
+- [x] Render default S/A/B/C/D/E tiers.
+- [x] Add anime by title to the unranked area.
+- [x] Move an entry between tiers or back to unranked using its menu.
+- [x] Reorder entries inside a tier using menu actions.
+- [x] Remove an entry from the current board.
+- [x] Undo/redo editor operations.
+
+### 3B — board editing and interaction polish
+
+- [ ] Edit tier labels and colors.
+- [ ] Change tier order.
+- [ ] Add drag-and-drop between tiers and within a tier.
+- [ ] Improve tablet landscape/portrait and smaller-screen behavior.
+- [ ] Replace text-only entries with locally imported poster artwork in the library stage.
+
+Acceptance: a complete in-memory tier list can be created, edited, and presented clearly. Saving and poster artwork are intentionally separate stages.
 
 ## Stage 4 — library and local artwork
 
