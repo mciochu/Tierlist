@@ -56,6 +56,9 @@ import pl.mciochu.tierlist.domain.TierEntry
 import pl.mciochu.tierlist.domain.TierList
 import pl.mciochu.tierlist.domain.TierListEditor
 import pl.mciochu.tierlist.domain.TierListHistory
+import pl.mciochu.tierlist.domain.PositionChange
+import java.text.DateFormat
+import java.util.Date
 import java.io.File
 
 class MainActivity : ComponentActivity() {
@@ -132,6 +135,7 @@ private fun TierBoardScreen(context: Context, onProjectionUpdate: (SavedEditor) 
     var editTier by remember { mutableStateOf<Tier?>(null) }
     var editTierLabel by remember { mutableStateOf("") }
     var pendingPosterId by remember { mutableStateOf<String?>(null) }
+    var selectedAnimeId by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(saved) {
         storage.save(saved)
@@ -140,7 +144,11 @@ private fun TierBoardScreen(context: Context, onProjectionUpdate: (SavedEditor) 
 
     fun applyBoard(next: TierList) {
         history = history.apply(next)
-        saved = saved.copy(board = next)
+        saved = recordPositionChanges(saved, next, "MOVE")
+    }
+
+    fun restoreBoard(next: TierList, operation: String) {
+        saved = recordPositionChanges(saved, next, operation)
     }
 
     val posterPicker = rememberLauncherForActivityResult(
@@ -180,14 +188,14 @@ private fun TierBoardScreen(context: Context, onProjectionUpdate: (SavedEditor) 
                     OutlinedButton(
                         onClick = {
                             history = history.undo()
-                            saved = saved.copy(board = history.current)
+                            restoreBoard(history.current, "UNDO")
                         },
                         enabled = history.canUndo
                     ) { Text("Cofnij") }
                     OutlinedButton(
                         onClick = {
                             history = history.redo()
-                            saved = saved.copy(board = history.current)
+                            restoreBoard(history.current, "REDO")
                         },
                         enabled = history.canRedo
                     ) { Text("Ponów") }
@@ -252,7 +260,9 @@ private fun TierBoardScreen(context: Context, onProjectionUpdate: (SavedEditor) 
                         onChoosePoster = { id ->
                             pendingPosterId = id
                             posterPicker.launch(arrayOf("image/*"))
-                        }
+                        },
+                        positionHistory = saved.positionHistory,
+                        onShowStats = { selectedAnimeId = it }
                     )
                 }
                 item(key = "unranked") {
@@ -268,7 +278,9 @@ private fun TierBoardScreen(context: Context, onProjectionUpdate: (SavedEditor) 
                         onChoosePoster = { id ->
                             pendingPosterId = id
                             posterPicker.launch(arrayOf("image/*"))
-                        }
+                        },
+                        positionHistory = saved.positionHistory,
+                        onShowStats = { selectedAnimeId = it }
                     )
                 }
             }
@@ -333,6 +345,93 @@ private fun TierBoardScreen(context: Context, onProjectionUpdate: (SavedEditor) 
             }
         )
     }
+    val selectedAnime = selectedAnimeId
+    if (selectedAnime != null) {
+        val asset = saved.anime[selectedAnime] ?: AnimeAsset(selectedAnime)
+        val currentEntry = saved.board.entries.singleOrNull { it.animeId == selectedAnime }
+        val changes = saved.positionHistory.filter { it.animeId == selectedAnime }
+            .sortedByDescending { it.timestamp }
+        val visited = (changes.flatMap { listOfNotNull(it.fromTierLabel, it.toTierLabel) } +
+            listOfNotNull(currentEntry?.tierId?.let { id -> saved.board.tiers.firstOrNull { it.id == id }?.label }))
+            .distinct()
+        val tierOrder = saved.board.tiers.sortedBy { it.position }
+        val tierRanks = visited.mapNotNull { label ->
+            tierOrder.indexOfFirst { it.label == label }.takeIf { it >= 0 }?.let { label to it }
+        }
+        val highest = tierRanks.minByOrNull { it.second }?.first
+        val lowest = tierRanks.maxByOrNull { it.second }?.first
+        val currentLabel = currentEntry?.tierId?.let { id ->
+            saved.board.tiers.firstOrNull { it.id == id }?.label
+        } ?: "Nieumieszczone"
+        AlertDialog(
+            onDismissRequest = { selectedAnimeId = null },
+            title = { Text(asset.title) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Aktualnie: $currentLabel", style = MaterialTheme.typography.titleSmall)
+                    Text("Zarejestrowane zmiany: ${changes.size} · odwiedzone poziomy: ${visited.size}")
+                    Text("Najwyższy: ${highest ?: "—"} · najniższy: ${lowest ?: "—"}")
+                    Text("Historia pozycji", style = MaterialTheme.typography.titleSmall)
+                    if (changes.isEmpty()) {
+                        Text("Brak zarejestrowanych zmian.")
+                    } else {
+                        LazyColumn(Modifier.height(260.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            items(changes) { change ->
+                                val from = change.fromTierLabel?.let { "$it · poz. ${change.fromPosition}" } ?: "Poza tablicą"
+                                val to = change.toTierLabel?.let { "$it · poz. ${change.toPosition}" } ?: "Poza tablicą"
+                                Column {
+                                    Text("$from → $to", style = MaterialTheme.typography.bodyMedium)
+                                    Text(
+                                        "${DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(change.timestamp))} · ${change.operation}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { selectedAnimeId = null }) { Text("Zamknij") }
+            }
+        )
+    }
+}
+
+private fun recordPositionChanges(
+    saved: SavedEditor,
+    nextBoard: TierList,
+    operation: String
+): SavedEditor {
+    val before = saved.board.entries.associateBy { it.animeId }
+    val after = nextBoard.entries.associateBy { it.animeId }
+    val beforeTiers = saved.board.tiers.associateBy { it.id }
+    val afterTiers = nextBoard.tiers.associateBy { it.id }
+    val now = System.currentTimeMillis()
+    val changes = (before.keys + after.keys).mapNotNull { animeId ->
+        val old = before[animeId]
+        val new = after[animeId]
+        if (old?.tierId == new?.tierId && old?.position == new?.position) {
+            null
+        } else {
+            PositionChange(
+                animeId = animeId,
+                fromTierId = old?.tierId,
+                fromTierLabel = old?.tierId?.let { beforeTiers[it]?.label },
+                fromPosition = old?.position?.plus(1),
+                toTierId = new?.tierId,
+                toTierLabel = new?.tierId?.let { afterTiers[it]?.label },
+                toPosition = new?.position?.plus(1),
+                operation = operation,
+                timestamp = now
+            )
+        }
+    }
+    return saved.copy(
+        board = nextBoard,
+        positionHistory = saved.positionHistory + changes
+    )
 }
 
 private val TIER_COLORS = listOf(
@@ -349,7 +448,9 @@ private fun TierBoardRow(
     onEditTier: () -> Unit,
     onMoveAnime: (String, String?, Int?) -> Unit,
     onRemoveAnime: (String) -> Unit,
-    onChoosePoster: (String) -> Unit
+    onChoosePoster: (String) -> Unit,
+    positionHistory: List<PositionChange>,
+    onShowStats: (String) -> Unit
 ) {
     Card(
         Modifier.fillMaxWidth(),
@@ -378,7 +479,7 @@ private fun TierBoardRow(
                     items(entries, key = { it.animeId }) { entry ->
                         AnimeTile(
                             entry, assets[entry.animeId] ?: AnimeAsset(entry.animeId), board,
-                            onMoveAnime, onRemoveAnime, onChoosePoster
+                            onMoveAnime, onRemoveAnime, onChoosePoster, onShowStats
                         )
                     }
                 }
@@ -394,7 +495,8 @@ private fun AnimeTile(
     board: TierList,
     onMoveAnime: (String, String?, Int?) -> Unit,
     onRemoveAnime: (String) -> Unit,
-    onChoosePoster: (String) -> Unit
+    onChoosePoster: (String) -> Unit,
+    onShowStats: (String) -> Unit
 ) {
     var expanded by remember(entry.animeId) { mutableStateOf(false) }
     val inTier = board.entries.filter { it.tierId == entry.tierId }.sortedBy { it.position }
@@ -427,6 +529,9 @@ private fun AnimeTile(
                             onMoveAnime(entry.animeId, entry.tierId, index + 1); expanded = false
                         })
                     }
+                    DropdownMenuItem(text = { Text("Statystyki i historia") }, onClick = {
+                        onShowStats(entry.animeId); expanded = false
+                    })
                     DropdownMenuItem(text = { Text("Dodaj/zmień plakat") }, onClick = {
                         onChoosePoster(entry.animeId); expanded = false
                     })
