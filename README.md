@@ -1,44 +1,64 @@
 # Anime Tier Board
 
-Offline-first Android application for building and presenting anime tier lists at conventions.
+Offline-first Android application for creating and presenting anime tier lists at conventions.
 
-The Android tablet is the primary device: it stores the anime library and ranking sessions, provides the editor, and drives a projector when the tablet supports an external display. A projector is an output only; no laptop, Raspberry Pi, or separate controller is required.
+The Android tablet is the primary and complete device: it stores the anime library and rankings, provides the editor, and can send a presentation to a projector when the tablet supports an external display. No laptop, Raspberry Pi, account, or cloud service is required.
 
-## Project status
+## Current status
 
-**Phase 0 — foundation and architecture.** The repository is being initialized. The first usable milestone is a local tier-list editor with persistent data and undo/redo. Projector output and attendee participation follow after the core workflow is stable.
+**Stage 1 — Android project foundation.** The repository now contains a minimal native Android application using Kotlin and Jetpack Compose. The tier-list editor is the next implementation stage.
 
 ## Product principles
 
-- Android tablet first; desktop is a future target, not a requirement.
-- Offline-first: an event must remain usable without internet access.
-- One source of truth for anime metadata and artwork, with separate placements per ranking.
-- Presenter remains in control; public suggestions and voting never silently change the board.
-- No accounts or cloud service required for the basic experience.
-- Preserve sessions through app restarts and provide import/export backups.
-- Avoid unnecessary Gradle modules and premature networking infrastructure.
+- Android tablet first.
+- Work offline; internet is optional for future catalogue lookups.
+- One reusable anime library; placements belong to individual tier lists.
+- Presenter remains in control of the official board.
+- No accounts or cloud dependency for normal use.
+- Preserve rankings and sessions; support explicit backup and restore.
+- Add no module, library, service, or abstraction until it solves a real need.
 
 ## Planned capabilities
 
-1. Create and configure tier boards (labels, order, colors).
-2. Maintain a reusable anime library and attach local poster artwork.
-3. Add, move, reorder, and remove posters with undo/redo.
-4. Autosave sessions and restore them after restart.
-5. Present a clean, fullscreen board on a supported external display; mirror the tablet when separate display output is unavailable.
-6. Later: optional QR-based suggestions and voting from attendee phones.
+1. Create tier lists and configure their rows, labels, order, and colors.
+2. Keep a reusable anime library and attach local poster artwork.
+3. Add, move, reorder, and remove posters.
+4. Support undo/redo and automatic saving.
+5. Present a clean fullscreen board on a compatible external display.
+6. Later, optionally accept suggestions and votes from attendee phones.
 
-## Technical direction
+## Technology
 
-- Kotlin + Compose Multiplatform.
-- Android application as the first shipping target.
-- Shared Kotlin domain and presentation code, with Android-specific display integration.
-- SQLite persistence; database access behind repositories.
-- Local image storage/cache and explicit import/export.
-- Desktop target kept as a future-compatible direction; it must not complicate the Android MVP.
+- Kotlin with Android Gradle Plugin's built-in Kotlin support.
+- Jetpack Compose and Material 3 for the interface.
+- One Android application module; no premature multi-module structure.
+- Gradle Wrapper for reproducible builds.
+- Persistence, image handling, and projector integration will be added only in the stage where they are needed.
 
-## Development
+A desktop build and Kotlin Multiplatform are deliberately deferred. The first product must work well on one Android tablet; adding more targets now would increase setup and maintenance without improving the first usable version.
 
-Open the project in a current Android Studio with Kotlin Multiplatform support. The Gradle wrapper will be added with the first verified build environment. See [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+## Build
+
+Open the repository in Android Studio and let Gradle sync.
+
+Requirements:
+- JDK 17
+- Android SDK Platform 37
+- Internet access for the first Gradle/dependency download
+
+Build a debug APK:
+
+```bash
+./gradlew :app:assembleDebug
+```
+
+The APK is created at `app/build/outputs/apk/debug/app-debug.apk`.
+
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [Roadmap](docs/ROADMAP.md)
+- [Data model](docs/DATA_MODEL.md)
 
 ## License
 

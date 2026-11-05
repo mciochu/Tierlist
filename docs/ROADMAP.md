@@ -1,63 +1,76 @@
 # Implementation roadmap
 
-## Phase 0 — repository foundation
-- [x] Confirm repository and product direction.
-- [x] Record architecture, scope, and data boundaries.
-- [ ] Add buildable Android/Compose project skeleton.
-- [ ] Add CI build and unit-test workflow after first local build is verified.
+The project is implemented in small stages. Each stage must be useful on its own, and every proposed dependency or abstraction must justify its maintenance cost.
 
-## Phase 1 — tier-list engine (first functional milestone)
-- [ ] Define domain entities and stable IDs.
-- [ ] Implement tier configuration and ordering rules.
-- [ ] Implement add, move, reorder, and remove operations.
-- [ ] Implement undo/redo with reversible operation history.
-- [ ] Add unit tests for invalid IDs, duplicate entries, ordering, and undo/redo.
-- [ ] Create a basic board editor using sample data.
+## Stage 1 — Android foundation
 
-Acceptance: a user can create a board, add sample anime, move posters between tiers, reorder them, undo/redo, and retain the board after restarting the app.
+- [x] Confirm tablet-first product scope.
+- [x] Document architecture and domain boundaries.
+- [x] Create a native Android project with Kotlin and Jetpack Compose.
+- [x] Add the Gradle Wrapper and pinned build versions.
+- [x] Add a minimal startup screen.
+- [ ] Verify the first Android build and fix any configuration issues.
 
-## Phase 2 — library and local artwork
-- [ ] Create searchable anime library.
-- [ ] Import poster images from Android storage picker.
-- [ ] Store artwork in app-managed files.
-- [ ] Add duplicate detection using external IDs and normalized titles.
-- [ ] Add artwork replacement and multiple artwork variants.
-- [ ] Add offline-first behavior and clear empty/error states.
+Acceptance: the repository opens in Android Studio and builds a debug APK.
 
-Acceptance: a complete board can be created and edited without internet access.
+## Stage 2 — tier-list engine
 
-## Phase 3 — persistence and session management
-- [ ] Add SQLite schema and migrations.
-- [ ] Persist library, boards, tiers, entries, sessions, and operation history.
-- [ ] Add autosave and crash/restart recovery tests.
+- [ ] Define the smallest domain model needed for anime, tiers, and placements.
+- [ ] Implement create, add, move, reorder, remove, and tier configuration operations.
+- [ ] Prevent duplicate anime entries in the same list.
+- [ ] Add undo/redo.
+- [ ] Test the engine with plain Kotlin unit tests.
+
+Acceptance: tier-list operations are correct and testable without Android UI or a database.
+
+## Stage 3 — first usable editor
+
+- [ ] Render a tier board with configurable S/A/B/C/D/E rows.
+- [ ] Allow tier labels, colors, and order to be changed.
+- [ ] Add temporary sample anime while the library is not implemented.
+- [ ] Support drag-and-drop between rows and reordering inside a row.
+- [ ] Provide clear empty states and basic tablet/phone layouts.
+
+Acceptance: the user can build and edit a complete in-memory tier list.
+
+## Stage 4 — library and local artwork
+
+- [ ] Add a reusable anime library.
+- [ ] Import poster files with Android's system photo/file picker.
+- [ ] Store imported artwork in app-managed storage.
+- [ ] Add search and duplicate detection.
+- [ ] Make library and artwork available offline.
+
+Acceptance: a tier list can be built using locally stored anime and posters without internet.
+
+## Stage 5 — persistence and backups
+
+- [ ] Select storage based on the finished domain model; avoid persistence abstractions before then.
+- [ ] Save lists and library through app restarts.
+- [ ] Add safe migrations and recovery behavior.
 - [ ] Add versioned export/import and backup validation.
 
-Acceptance: app restart does not lose work; backup can be exported and restored safely.
+Acceptance: edits survive process death, restart, and a validated restore.
 
-## Phase 4 — projector presentation
-- [ ] Detect compatible external displays.
-- [ ] Implement Android Presentation for independent projector content where supported.
-- [ ] Add fullscreen board-only layout.
-- [ ] Add mirroring/casting fallback guidance.
-- [ ] Test connect/disconnect, rotation, resolution changes, and long sessions.
+## Stage 6 — projector mode
 
-Acceptance: a live board remains readable and synchronized on supported projectors, with a clear fallback on unsupported hardware.
+- [ ] Detect connected external displays.
+- [ ] Use a separate fullscreen Presentation where supported.
+- [ ] Keep the projected board synchronized with tablet edits.
+- [ ] Handle rotation, disconnect/reconnect, and different resolutions.
+- [ ] Explain or gracefully fall back to mirroring when separate output is unavailable.
 
-## Phase 5 — convention interaction
-- [ ] Add presenter mode and public self-service mode.
-- [ ] Add moderation controls, undo, and inactivity/reset safeguards.
+Acceptance: the board is readable and stable on the user's actual tablet/projector setup.
+
+## Stage 7 — convention participation
+
+- [ ] Add presenter and public self-service modes.
+- [ ] Add moderation and reliable undo.
 - [ ] Design optional phone suggestions and voting.
-- [ ] Only then evaluate local hotspot/network server requirements.
-- [ ] Keep official board mutations presenter-approved.
+- [ ] Add a local network service only if the phone workflow requires it.
 
-Acceptance: attendees can contribute without taking control of the official board.
-
-## Phase 6 — polish and scale
-- [ ] Optimize large libraries (500+ artwork items).
-- [ ] Add PNG export.
-- [ ] Add accessibility and large-screen readability checks.
-- [ ] Test portrait/landscape tablet layouts.
-- [ ] Test low-storage and interrupted-import cases.
+Acceptance: attendees can contribute, but cannot silently alter the official ranking.
 
 ## Later — desktop
-A desktop target may reuse shared domain and UI code after Android workflows are proven. It is not a dependency of the convention MVP.
+
+Reconsider a desktop target only when there is a real use case. Reuse tested domain code where practical; do not compromise the Android MVP for a hypothetical port.
