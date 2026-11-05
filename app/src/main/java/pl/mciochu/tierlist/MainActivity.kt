@@ -3,6 +3,9 @@ package pl.mciochu.tierlist
 import android.content.Context
 import android.os.Bundle
 import android.graphics.BitmapFactory
+import android.hardware.display.DisplayManager
+import android.os.Handler
+import android.os.Looper
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -57,14 +60,65 @@ import pl.mciochu.tierlist.domain.TierListHistory
 import java.io.File
 
 class MainActivity : ComponentActivity() {
+    private lateinit var displayManager: DisplayManager
+    private var projection: BoardProjection? = null
+    private var projectionDisplayId: Int? = null
+    private var lastProjectionState: SavedEditor? = null
+
+    private val displayListener = object : DisplayManager.DisplayListener {
+        override fun onDisplayAdded(displayId: Int) {
+            lastProjectionState?.let { updateProjection(it) }
+        }
+        override fun onDisplayChanged(displayId: Int) {
+            lastProjectionState?.let { updateProjection(it) }
+        }
+        override fun onDisplayRemoved(displayId: Int) {
+            if (projectionDisplayId == displayId) {
+                projection?.dismiss()
+                projection = null
+                projectionDisplayId = null
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme { TierBoardScreen(this) } }
+        displayManager = getSystemService(DISPLAY_SERVICE) as DisplayManager
+        displayManager.registerDisplayListener(displayListener, Handler(Looper.getMainLooper()))
+        setContent { MaterialTheme { TierBoardScreen(this) { updateProjection(it) } } }
+    }
+
+    private fun updateProjection(state: SavedEditor) {
+        lastProjectionState = state
+        val display = displayManager.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
+            .firstOrNull()
+        if (display == null) {
+            projection?.dismiss()
+            projection = null
+            projectionDisplayId = null
+            return
+        }
+        if (projectionDisplayId != display.displayId || projection == null) {
+            projection?.dismiss()
+            projection = BoardProjection(this, display, state).also {
+                projectionDisplayId = display.displayId
+                it.show()
+            }
+        } else {
+            projection?.update(state)
+        }
+    }
+
+    override fun onDestroy() {
+        displayManager.unregisterDisplayListener(displayListener)
+        projection?.dismiss()
+        projection = null
+        super.onDestroy()
     }
 }
 
 @Composable
-private fun TierBoardScreen(context: Context) {
+private fun TierBoardScreen(context: Context, onProjectionUpdate: (SavedEditor) -> Unit) {
     val storage = remember { LocalBoardStorage(context) }
     val initial = remember {
         storage.load() ?: SavedEditor(
@@ -80,7 +134,10 @@ private fun TierBoardScreen(context: Context) {
     var editTierLabel by remember { mutableStateOf("") }
     var pendingPosterId by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(saved) { storage.save(saved) }
+    LaunchedEffect(saved) {
+        storage.save(saved)
+        onProjectionUpdate(saved)
+    }
 
     fun applyBoard(next: TierList) {
         history = history.apply(next)
