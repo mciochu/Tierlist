@@ -56,7 +56,7 @@ import pl.mciochu.tierlist.domain.TierEntry
 import pl.mciochu.tierlist.domain.TierList
 import pl.mciochu.tierlist.domain.TierListEditor
 import pl.mciochu.tierlist.domain.TierListHistory
-import pl.mciochu.tierlist.domain.PositionChange
+import pl.mciochu.tierlist.domain.buildPositionChanges
 import java.text.DateFormat
 import java.util.Date
 import java.io.File
@@ -261,7 +261,6 @@ private fun TierBoardScreen(context: Context, onProjectionUpdate: (SavedEditor) 
                             pendingPosterId = id
                             posterPicker.launch(arrayOf("image/*"))
                         },
-                        positionHistory = saved.positionHistory,
                         onShowStats = { selectedAnimeId = it }
                     )
                 }
@@ -377,8 +376,10 @@ private fun TierBoardScreen(context: Context, onProjectionUpdate: (SavedEditor) 
                     } else {
                         LazyColumn(Modifier.height(260.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             items(changes) { change ->
-                                val from = change.fromTierLabel?.let { "$it · poz. ${change.fromPosition}" } ?: "Poza tablicą"
-                                val to = change.toTierLabel?.let { "$it · poz. ${change.toPosition}" } ?: "Poza tablicą"
+                                val from = if (change.fromPosition == null) "Biblioteka" else
+                                    (change.fromTierLabel ?: "Nieumieszczone") + " · poz. ${change.fromPosition}"
+                                val to = if (change.toPosition == null) "Biblioteka" else
+                                    (change.toTierLabel ?: "Nieumieszczone") + " · poz. ${change.toPosition}"
                                 Column {
                                     Text("$from → $to", style = MaterialTheme.typography.bodyMedium)
                                     Text(
@@ -404,33 +405,15 @@ private fun recordPositionChanges(
     nextBoard: TierList,
     operation: String
 ): SavedEditor {
-    val before = saved.board.entries.associateBy { it.animeId }
-    val after = nextBoard.entries.associateBy { it.animeId }
-    val beforeTiers = saved.board.tiers.associateBy { it.id }
-    val afterTiers = nextBoard.tiers.associateBy { it.id }
-    val now = System.currentTimeMillis()
-    val changes = (before.keys + after.keys).mapNotNull { animeId ->
-        val old = before[animeId]
-        val new = after[animeId]
-        if (old?.tierId == new?.tierId && old?.position == new?.position) {
-            null
-        } else {
-            PositionChange(
-                animeId = animeId,
-                fromTierId = old?.tierId,
-                fromTierLabel = old?.tierId?.let { beforeTiers[it]?.label },
-                fromPosition = old?.position?.plus(1),
-                toTierId = new?.tierId,
-                toTierLabel = new?.tierId?.let { afterTiers[it]?.label },
-                toPosition = new?.position?.plus(1),
-                operation = operation,
-                timestamp = now
-            )
-        }
-    }
+    val events = buildPositionChanges(
+        before = saved.board,
+        after = nextBoard,
+        operation = operation,
+        timestamp = System.currentTimeMillis()
+    )
     return saved.copy(
         board = nextBoard,
-        positionHistory = saved.positionHistory + changes
+        positionHistory = saved.positionHistory + events
     )
 }
 
