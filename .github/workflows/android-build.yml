@@ -24,7 +24,7 @@ jobs:
           echo "ANDROID_SDK_ROOT=/usr/local/lib/android/sdk" >> "$GITHUB_ENV"
           echo "/usr/local/lib/android/sdk/platform-tools" >> "$GITHUB_PATH"
           yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses
-          /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-37"
+          /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --channel=3 "platforms;android-37"
       - uses: gradle/actions/setup-gradle@v4
       - name: Run unit tests
         run: ./gradlew --no-daemon :app:testDebugUnitTest
