@@ -1,88 +1,76 @@
 # Implementation roadmap
 
-The project is implemented in small stages. Each stage must be useful on its own, and every proposed dependency or abstraction must justify its maintenance cost.
+Stages are deliberately small. Prefer platform APIs and plain Kotlin before adding dependencies, modules, services, or abstractions.
 
 ## Stage 1 — Android foundation
 
-- [x] Confirm tablet-first product scope.
-- [x] Document architecture and domain boundaries.
-- [x] Create a native Android project with Kotlin and Jetpack Compose.
-- [x] Add the Gradle Wrapper and pinned build versions.
-- [x] Add a minimal startup screen.
-- [x] Add a small CI build workflow.
+- [x] Native Kotlin + Jetpack Compose Android application.
+- [x] One application module and Gradle Wrapper.
+- [x] Minimal build workflow with unit tests and debug APK task.
 
-Acceptance: project files and build configuration are in the repository. Full Android Gradle build confirmation is still pending.
+Full Gradle CI result remains to be verified.
 
 ## Stage 2 — tier-list engine
 
-- [x] Define the smallest domain model needed for anime, tiers, and placements.
-- [x] Implement create, add, move, reorder, remove, and tier configuration operations.
-- [x] Prevent duplicate anime entries in the same list.
-- [x] Add undo/redo.
-- [x] Add six plain Kotlin/JUnit test cases.
-- [x] Run a local Kotlin compiler validation for defaults, add/move/reorder, tier editing/removal, and undo/redo.
+- [x] Immutable tier, entry, and board model.
+- [x] Add, move, reorder, and remove anime entries.
+- [x] Add, edit, reorder, and remove tiers.
+- [x] Undo/redo snapshots.
+- [x] Six JUnit tests and local Kotlin logic validation.
 
-Acceptance: pure Kotlin operations work independently of Android UI and database. The JUnit task is also wired into GitHub Actions; CI result is pending verification.
+## Stage 3 — editor
 
-## Stage 3 — first usable editor
+- [x] Default S/A/B/C/D/E rows and unranked area.
+- [x] Add anime by title.
+- [x] Move between rows and reorder with menu actions.
+- [x] Remove entries and undo/redo.
+- [x] Edit row labels and colors.
+- [x] Add and remove rows; change row order.
+- [ ] Direct drag-and-drop. Kept out of this pass to avoid a fragile gesture implementation; menu-based moves and reorder are available.
+- [ ] Real-device layout verification in tablet portrait and landscape.
 
-### 3A — basic board interaction
+## Stage 4 — local artwork and library foundation
 
-- [x] Render default S/A/B/C/D/E tiers.
-- [x] Add anime by title to the unranked area.
-- [x] Move an entry between tiers or back to unranked using its menu.
-- [x] Reorder entries inside a tier using menu actions.
-- [x] Remove an entry from the current board.
-- [x] Undo/redo editor operations.
+- [x] Import poster artwork using Android's system document picker.
+- [x] Copy selected artwork into app-private storage for offline use.
+- [x] Show poster thumbnails on board entries.
+- [x] Keep anime title and artwork metadata locally.
+- [ ] Separate reusable library screen and search/selection flow.
+- [ ] Duplicate detection across multiple tier lists.
 
-### 3B — board editing and interaction polish
+No remote catalogue client is included yet. Local import is the reliable offline-first path and avoids API keys, rate limits, and network dependencies.
 
-- [ ] Edit tier labels and colors.
-- [ ] Change tier order.
-- [ ] Add drag-and-drop between tiers and within a tier.
-- [ ] Improve tablet landscape/portrait and smaller-screen behavior.
-- [ ] Replace text-only entries with locally imported poster artwork in the library stage.
+## Stage 5 — persistence
 
-Acceptance: a complete in-memory tier list can be created, edited, and presented clearly. Saving and poster artwork are intentionally separate stages.
+- [x] Automatic save of board, rows, placements, titles, and poster paths.
+- [x] Restore board after process restart.
+- [x] Version field in the local JSON document.
+- [ ] User-facing export/import and backup validation.
+- [ ] Recovery UI for malformed or older saved data.
 
-## Stage 4 — library and local artwork
+The first version uses Android SharedPreferences + org.json and app-private poster files. Room/SQLDelight is not justified for a single local board and a small dataset yet; reconsider only when multiple lists and a larger searchable library arrive.
 
-- [ ] Add a reusable anime library.
-- [ ] Import poster files with Android's system photo/file picker.
-- [ ] Store imported artwork in app-managed storage.
-- [ ] Add search and duplicate detection.
-- [ ] Make library and artwork available offline.
+## Stage 6 — projector
 
-Acceptance: a tier list can be built using locally stored anime and posters without internet.
+- [x] Detect presentation-capable external displays.
+- [x] Open a separate read-only Presentation when one is connected.
+- [x] Keep projection synchronized with editor changes.
+- [x] Render tier labels, colors, poster art, and titles.
+- [ ] Test HDMI/USB-C and wireless display on the actual tablet.
+- [ ] Tune projection for 16:9 and unusual projector resolutions.
+- [ ] Add a visible mirror-mode fallback/help message when no presentation display is exposed by Android.
 
-## Stage 5 — persistence and backups
+A tablet may mirror instead of exposing a separate display. Separate control and projection screens depend on the tablet, adapter, and casting path.
 
-- [ ] Select storage based on the finished domain model; avoid persistence abstractions before then.
-- [ ] Save lists and library through app restarts.
-- [ ] Add safe migrations and recovery behavior.
-- [ ] Add versioned export/import and backup validation.
+## Stage 7 — convention workflow
 
-Acceptance: edits survive process death, restart, and a validated restore.
+- [ ] Presenter lock and public self-service mode.
+- [ ] Safe session reset/new ranking flow.
+- [ ] Suggestions and voting from attendee phones.
+- [ ] Local network service only if phone participation is implemented.
 
-## Stage 6 — projector mode
-
-- [ ] Detect connected external displays.
-- [ ] Use a separate fullscreen Presentation where supported.
-- [ ] Keep the projected board synchronized with tablet edits.
-- [ ] Handle rotation, disconnect/reconnect, and different resolutions.
-- [ ] Explain or gracefully fall back to mirroring when separate output is unavailable.
-
-Acceptance: the board is readable and stable on the user's actual tablet/projector setup.
-
-## Stage 7 — convention participation
-
-- [ ] Add presenter and public self-service modes.
-- [ ] Add moderation and reliable undo.
-- [ ] Design optional phone suggestions and voting.
-- [ ] Add a local network service only if the phone workflow requires it.
-
-Acceptance: attendees can contribute, but cannot silently alter the official ranking.
+Phone participation is optional and must not become a requirement for normal offline use.
 
 ## Later — desktop
 
-Reconsider a desktop target only when there is a real use case. Reuse tested domain code where practical; do not compromise the Android MVP for a hypothetical port.
+Deferred until Android has been used at a real event. Reuse the plain Kotlin domain model where practical.
