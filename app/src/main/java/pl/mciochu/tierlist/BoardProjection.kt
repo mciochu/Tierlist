@@ -73,7 +73,7 @@ class BoardProjection(
                     dp(12),
                     dp(104),
                     dp(136),
-                    text
+                    ::text
                 )
             )
         }
@@ -87,7 +87,7 @@ class BoardProjection(
                     dp(12),
                     dp(104),
                     dp(136),
-                    text
+                    ::text
                 )
             )
         }
