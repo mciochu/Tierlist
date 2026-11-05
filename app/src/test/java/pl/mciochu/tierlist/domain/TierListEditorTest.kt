@@ -100,4 +100,37 @@ class TierListEditorTest {
         val changed = TierListEditor.addAnime(redone.current, "anime-2", "a")
         assertFalse(redone.apply(changed).canRedo)
     }
+    @Test
+    fun positionHistoryTracksEveryAnimeAffectedByReordering() {
+        var before = newList()
+        before = TierListEditor.addAnime(before, "a", "s")
+        before = TierListEditor.addAnime(before, "b", "s")
+        before = TierListEditor.addAnime(before, "c", "s")
+
+        val after = TierListEditor.moveAnime(before, "a", "s", 2)
+        val events = buildPositionChanges(before, after, "MOVE", 1234L)
+
+        assertEquals(setOf("a", "b", "c"), events.map { it.animeId }.toSet())
+        val moved = events.single { it.animeId == "a" }
+        assertEquals(1, moved.fromPosition)
+        assertEquals(3, moved.toPosition)
+        assertEquals("S", moved.fromTierLabel)
+        assertEquals(1234L, moved.timestamp)
+    }
+
+    @Test
+    fun undoAndRedoCanBeRecordedAsNewPositionEvents() {
+        var before = newList()
+        before = TierListEditor.addAnime(before, "a", "s")
+        val after = TierListEditor.moveAnime(before, "a", "a")
+
+        val undoEvents = buildPositionChanges(after, before, "UNDO", 2000L)
+        val redoEvents = buildPositionChanges(before, after, "REDO", 3000L)
+
+        assertEquals("UNDO", undoEvents.single().operation)
+        assertEquals("REDO", redoEvents.single().operation)
+        assertEquals("S", undoEvents.single().toTierLabel)
+        assertEquals("A", redoEvents.single().toTierLabel)
+    }
+
 }
