@@ -122,7 +122,9 @@ object TierListEditor {
         val tiers = list.tiers.sortedBy { it.position }.toMutableList()
         val insertAt = position.coerceIn(0, tiers.size)
         tiers.add(insertAt, Tier(tierId, label.trim(), colorArgb, insertAt))
-        return list.copy(tiers = normalizeTiers(tiers))
+        return list.copy(
+            tiers = tiers.mapIndexed { index, tier -> tier.copy(position = index) }
+        )
     }
 
     fun updateTier(
@@ -162,7 +164,9 @@ object TierListEditor {
         val moving = tiers.removeAt(currentIndex)
         val insertAt = targetPosition.coerceIn(0, tiers.size)
         tiers.add(insertAt, moving)
-        return list.copy(tiers = normalizeTiers(tiers))
+        return list.copy(
+            tiers = tiers.mapIndexed { index, tier -> tier.copy(position = index) }
+        )
     }
 
     fun removeTier(list: TierList, tierId: String): TierList {
