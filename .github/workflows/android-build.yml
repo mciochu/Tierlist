@@ -22,5 +22,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Install Android SDK
         run: sdkmanager "platforms;android-37"
+      - name: Run unit tests
+        run: ./gradlew --no-daemon :app:testDebugUnitTest
       - name: Build debug APK
         run: ./gradlew --no-daemon :app:assembleDebug
