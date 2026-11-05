@@ -1,90 +1,44 @@
-# Technical architecture
+# Architecture
 
-## 1. Scope
+## Product boundary
 
-Build an Android-first application for one tablet. The tablet owns the library, tier lists, editing, persistence, and presentation. A projector is an optional output, not a second computer.
+The Android tablet is the host, editor, local library, and persistence device. A projector is an optional display output. The application must remain useful offline and must not require a laptop, Raspberry Pi, cloud account, or attendee phone.
 
-The MVP must work offline and without attendee phones.
+## Current implementation
 
-## 2. Keep the implementation small
+One Android application module keeps the first release small:
 
-Start with one Gradle application module and package-level separation. Do not create Gradle modules for every feature. Add a ViewModel, repository, database, networking layer, or dependency-injection framework only when the feature that needs it is being implemented.
+- `domain/TierList.kt`: immutable tier-list model, editing operations, and undo/redo.
+- `data/LocalBoardStorage.kt`: versioned JSON save/restore through Android SharedPreferences.
+- `MainActivity.kt`: Compose editor, row controls, anime entry controls, and local poster import.
+- `BoardProjection.kt`: read-only external display using Android Presentation and platform Views.
 
-Initial source layout:
+The editor is the source of truth. The projector receives immutable snapshots and cannot change the board.
 
-```
-app/
-  src/main/
-    AndroidManifest.xml
-    java/pl/mciochu/tierlist/
-      MainActivity.kt
-      # Domain and UI packages are added alongside real features.
-docs/
-```
+## Data ownership
 
-Kotlin Multiplatform and a desktop target are deferred. They add build and platform complexity before there is a second product target. Keep domain logic Android-independent where that happens naturally, but do not create an abstraction solely for a hypothetical port.
+A tier list owns its ordered rows and placements. Each entry refers to an anime ID. The current first release keeps the anime title and optional local poster path in a small local asset map. A later library screen can make that map reusable across multiple tier lists without changing the placement model.
 
-## 3. UI
+Poster files are copied into app-private storage. The app does not depend on a temporary content URI remaining readable or on network access.
 
-- Kotlin + Jetpack Compose.
-- Material 3 components where they fit.
-- Tablet-first landscape layout, with phone-sized layout still usable for development.
-- Keep presentation UI separate from editing controls when projector support is implemented.
-- Avoid a custom design system until the UI demonstrates repeated patterns that justify one.
+## Persistence choice
 
-## 4. Domain concepts
+The current data volume does not justify Room, SQLDelight, or a database migration framework. A versioned JSON document stored in SharedPreferences is sufficient for the first board. Poster binaries remain separate files in app-private storage.
 
-- **Anime**: stable ID, main title, optional aliases and external catalogue IDs.
-- **Artwork**: stable ID, anime ID, locally managed file path, optional source/attribution.
-- **TierList**: stable ID, name, settings.
-- **Tier**: stable ID, tier-list ID, label, color, order.
-- **TierEntry**: stable ID, tier-list ID, anime ID, tier ID, order in tier.
-- **Session**: optional presentation/run referencing a tier list.
-- **ChangeRecord**: reversible edit data for undo/redo where needed.
+Before supporting multiple large lists, advanced search, or concurrent writes, revisit the persistence choice. Any migration must preserve existing local boards and poster files.
 
-Anime metadata and artwork are library data. Tier membership, tier, and order belong to a specific tier list. Removing a poster from a list must not delete the anime from the library.
+## Projector output
 
-## 5. Editing rules
+The activity observes Android's DisplayManager. When Android exposes a presentation display, a separate read-only Presentation renders the current board. If no such display exists, the editor remains available on the tablet and the device's ordinary screen mirroring/casting behavior is left to Android and the hardware.
 
-The tier-list engine should be plain Kotlin and have no Android UI dependency:
-- add a library anime to a list;
-- move an entry between tiers;
-- reorder entries;
-- remove an entry from a list;
-- add, remove, rename, recolor, and reorder tiers;
-- undo and redo successful edits.
+The app must not promise a separate projection surface on every USB-C tablet or wireless receiver.
 
-Operations validate their inputs and produce deterministic results. Unit tests cover ordering, duplicate entries, invalid IDs, moves, and undo/redo.
+## Deferred by design
 
-Do not add a separate event-sourcing framework. A small, explicit undo stack is sufficient until real usage proves otherwise.
+- Remote anime catalogue/API integration.
+- Accounts, cloud sync, and backend.
+- Phone voting/local HTTP server.
+- Desktop/Kotlin Multiplatform target.
+- Dependency injection and additional Gradle modules.
 
-## 6. Persistence
-
-Persistence is not part of the initial skeleton. When the editor data model is stable, choose the smallest reliable storage solution for the actual relationships and migration needs. Keep database access out of Compose UI.
-
-Artwork bytes should live in app-managed files; the database should store metadata and paths. Import copies images into app storage. Removing a TierEntry never removes Artwork.
-
-Backup format must be versioned and validated before restoring. Never silently overwrite an existing library or list during import.
-
-## 7. Projection
-
-Projection is a later Android-specific feature:
-1. detect external displays;
-2. use Android's Presentation API for an independent board when the connected device exposes a compatible secondary display;
-3. update the board from the same committed tier-list state;
-4. release the presentation cleanly on disconnect;
-5. retain normal tablet operation when separate output is unavailable.
-
-USB-C does not guarantee wired video output. Some casting methods mirror the tablet rather than expose an independent display. The application must handle these cases explicitly and should be tested with the actual tablet and projector.
-
-The projected surface contains only the ranking and presentation-safe labels, not editing controls.
-
-## 8. Attendee participation
-
-QR-based suggestions and voting are optional future features. They must not be required for local use. The presenter approves changes to the official ranking. A local network server is not justified until this feature is implemented.
-
-## 9. Platform references
-
-- Android secondary displays: DisplayManager and Presentation APIs.
-- Android Jetpack Compose and Material 3.
-- Gradle Wrapper for reproducible builds.
+Each item requires a concrete user workflow before implementation.
