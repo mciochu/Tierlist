@@ -350,6 +350,12 @@ private fun TierBoardScreen(context: Context, onProjectionUpdate: (SavedEditor) 
         val currentEntry = saved.board.entries.singleOrNull { it.animeId == selectedAnime }
         val changes = saved.positionHistory.filter { it.animeId == selectedAnime }
             .sortedByDescending { it.timestamp }
+        val tierChanges = changes.count { it.fromTierId != it.toTierId }
+        val orderChanges = changes.count {
+            it.fromTierId == it.toTierId &&
+                it.fromPosition != null && it.toPosition != null &&
+                it.fromPosition != it.toPosition
+        }
         val visited = (changes.flatMap { listOfNotNull(it.fromTierLabel, it.toTierLabel) } +
             listOfNotNull(currentEntry?.tierId?.let { id -> saved.board.tiers.firstOrNull { it.id == id }?.label }))
             .distinct()
@@ -368,7 +374,8 @@ private fun TierBoardScreen(context: Context, onProjectionUpdate: (SavedEditor) 
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Aktualnie: $currentLabel", style = MaterialTheme.typography.titleSmall)
-                    Text("Zarejestrowane zmiany: ${changes.size} · odwiedzone poziomy: ${visited.size}")
+                    Text("Zmiany położenia: ${changes.size} · odwiedzone poziomy: ${visited.size}")
+                    Text("Zmiany tieru: $tierChanges · kolejności: $orderChanges")
                     Text("Najwyższy: ${highest ?: "—"} · najniższy: ${lowest ?: "—"}")
                     Text("Historia pozycji", style = MaterialTheme.typography.titleSmall)
                     if (changes.isEmpty()) {
