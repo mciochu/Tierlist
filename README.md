@@ -6,7 +6,7 @@ The Android tablet is the primary and complete device: it stores the anime libra
 
 ## Current status
 
-**Stage 3 — first interactive editor in progress.** The native Android app, pure Kotlin tier-list engine, undo/redo, and first board screen are in the repository. The current editor is in-memory; library artwork and persistence are later stages.
+**Android MVP foundation implemented.** The app now has a tier editor, configurable rows, local poster import, automatic local saving, and a separate external-display presentation. Automated build/test status and real projector hardware compatibility still need verification.
 
 ## Product principles
 
@@ -20,11 +20,11 @@ The Android tablet is the primary and complete device: it stores the anime libra
 
 ## Planned capabilities
 
-1. Create tier lists and configure their rows, labels, order, and colors.
-2. Keep a reusable anime library and attach local poster artwork.
-3. Add, move, reorder, and remove posters.
-4. Support undo/redo and automatic saving.
-5. Present a clean fullscreen board on a compatible external display.
+1. Create a tier list with configurable row labels, order, and colors.
+2. Add anime by title and import poster images from the tablet.
+3. Move, reorder, and remove entries; undo/redo changes.
+4. Automatically save the board and poster files locally.
+5. Show a separate read-only board on a compatible external display.
 6. Later, optionally accept suggestions and votes from attendee phones.
 
 ## Technology
@@ -33,7 +33,8 @@ The Android tablet is the primary and complete device: it stores the anime libra
 - Jetpack Compose and Material 3 for the interface.
 - One Android application module; no premature multi-module structure.
 - Gradle Wrapper for reproducible builds.
-- Persistence, image handling, and projector integration will be added only in the stage where they are needed.
+- Local persistence uses Android SharedPreferences with a small versioned JSON document; poster files live in app-private storage. This avoids adding a database dependency while the first data model is small.
+- Poster selection uses Android's system document picker and the projector uses the platform Presentation API; no image-loading or display-management library is required.
 
 A desktop build and Kotlin Multiplatform are deliberately deferred. The first product must work well on one Android tablet; adding more targets now would increase setup and maintenance without improving the first usable version.
 
