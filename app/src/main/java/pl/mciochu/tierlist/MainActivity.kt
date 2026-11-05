@@ -2,7 +2,6 @@ package pl.mciochu.tierlist
 
 import android.content.Context
 import android.os.Bundle
-import android.graphics.BitmapFactory
 import android.hardware.display.DisplayManager
 import android.os.Handler
 import android.os.Looper
@@ -442,7 +441,7 @@ private fun AnimeTile(
 
 @Composable
 private fun PosterPreview(path: String?) {
-    val bitmap = remember(path) { path?.let { runCatching { BitmapFactory.decodeFile(it) }.getOrNull() } }
+    val bitmap = remember(path) { path?.let { runCatching { PosterImages.decode(it) }.getOrNull() } }
     if (bitmap != null) {
         Image(bitmap.asImageBitmap(), "Plakat anime", Modifier.fillMaxWidth().height(132.dp))
     } else {
