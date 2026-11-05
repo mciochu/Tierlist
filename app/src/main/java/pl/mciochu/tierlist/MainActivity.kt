@@ -439,7 +439,6 @@ private fun TierBoardRow(
     onMoveAnime: (String, String?, Int?) -> Unit,
     onRemoveAnime: (String) -> Unit,
     onChoosePoster: (String) -> Unit,
-    positionHistory: List<PositionChange>,
     onShowStats: (String) -> Unit
 ) {
     Card(
