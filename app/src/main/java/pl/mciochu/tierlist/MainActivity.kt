@@ -1,17 +1,28 @@
 package pl.mciochu.tierlist
 
+import android.content.Context
 import android.os.Bundle
+import android.graphics.BitmapFactory
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -22,204 +33,296 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import pl.mciochu.tierlist.data.AnimeAsset
+import pl.mciochu.tierlist.data.LocalBoardStorage
+import pl.mciochu.tierlist.data.SavedEditor
+import pl.mciochu.tierlist.domain.Tier
 import pl.mciochu.tierlist.domain.TierEntry
 import pl.mciochu.tierlist.domain.TierList
 import pl.mciochu.tierlist.domain.TierListEditor
 import pl.mciochu.tierlist.domain.TierListHistory
+import java.io.File
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            MaterialTheme {
-                TierBoardScreen()
-            }
-        }
+        setContent { MaterialTheme { TierBoardScreen(this) } }
     }
 }
 
 @Composable
-private fun TierBoardScreen() {
-    var history by remember {
-        mutableStateOf(TierListHistory(TierList.createDefault("local-board", "Moja tierlista")))
+private fun TierBoardScreen(context: Context) {
+    val storage = remember { LocalBoardStorage(context) }
+    val initial = remember {
+        storage.load() ?: SavedEditor(
+            TierList.createDefault("local-board", "Moja tierlista"),
+            emptyMap(),
+            1
+        )
     }
-    val names = remember { mutableStateMapOf<String, String>() }
-    var newAnimeTitle by remember { mutableStateOf("") }
-    var nextAnimeId by remember { mutableIntStateOf(1) }
-    val board = history.current
+    var saved by remember { mutableStateOf(initial) }
+    var history by remember { mutableStateOf(TierListHistory(initial.board)) }
+    var newTitle by remember { mutableStateOf("") }
+    var editTier by remember { mutableStateOf<Tier?>(null) }
+    var editTierLabel by remember { mutableStateOf("") }
+    var pendingPosterId by remember { mutableStateOf<String?>(null) }
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
+    LaunchedEffect(saved) { storage.save(saved) }
+
+    fun applyBoard(next: TierList) {
+        history = history.apply(next)
+        saved = saved.copy(board = next)
+    }
+
+    val posterPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        val animeId = pendingPosterId
+        if (uri != null && animeId != null) {
+            val directory = File(context.filesDir, "posters").apply { mkdirs() }
+            val file = File(directory, animeId + "-" + System.currentTimeMillis() + ".img")
+            runCatching {
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    file.outputStream().use { output -> input.copyTo(output) }
+                } ?: error("Nie udało się otworzyć pliku.")
+                val asset = saved.anime[animeId] ?: AnimeAsset(animeId)
+                saved = saved.copy(anime = saved.anime + (animeId to asset.copy(posterPath = file.absolutePath)))
+            }
+        }
+        pendingPosterId = null
+    }
+
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            Modifier.fillMaxSize().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text(board.name, style = MaterialTheme.typography.headlineMedium)
-                    Text(
-                        "Anime Tier Board",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Text(saved.board.name, style = MaterialTheme.typography.headlineMedium)
+                    Text("Anime Tier Board · zapis lokalny", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     OutlinedButton(
-                        onClick = { history = history.undo() },
+                        onClick = {
+                            history = history.undo()
+                            saved = saved.copy(board = history.current)
+                        },
                         enabled = history.canUndo
                     ) { Text("Cofnij") }
                     OutlinedButton(
-                        onClick = { history = history.redo() },
+                        onClick = {
+                            history = history.redo()
+                            saved = saved.copy(board = history.current)
+                        },
                         enabled = history.canRedo
                     ) { Text("Ponów") }
                 }
             }
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedTextField(
-                    value = newAnimeTitle,
-                    onValueChange = { newAnimeTitle = it },
+                    value = newTitle,
+                    onValueChange = { newTitle = it },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
-                    label = { Text("Nazwa anime") }
+                    label = { Text("Dodaj anime do biblioteki") }
                 )
                 Button(
+                    enabled = newTitle.isNotBlank(),
                     onClick = {
-                        val title = newAnimeTitle.trim()
-                        if (title.isNotEmpty()) {
-                            val id = "anime-" + nextAnimeId
-                            history = history.apply(TierListEditor.addAnime(board, id))
-                            names[id] = title
-                            nextAnimeId += 1
-                            newAnimeTitle = ""
-                        }
-                    },
-                    enabled = newAnimeTitle.isNotBlank()
+                        val title = newTitle.trim()
+                        val id = "anime-" + saved.nextAnimeId
+                        applyBoard(TierListEditor.addAnime(saved.board, id))
+                        saved = saved.copy(
+                            anime = saved.anime + (id to AnimeAsset(title)),
+                            nextAnimeId = saved.nextAnimeId + 1
+                        )
+                        newTitle = ""
+                    }
                 ) { Text("Dodaj") }
             }
 
-            Text(
-                board.entries.size.toString() + " pozycji · " + board.tiers.size + " poziomów",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(saved.board.entries.size.toString() + " anime · " +
+                    saved.board.tiers.size + " poziomów", style = MaterialTheme.typography.labelLarge)
+                TextButton(
+                    onClick = {
+                        val id = "tier-" + (saved.board.tiers.size + 1)
+                        applyBoard(TierListEditor.addTier(saved.board, id, "Nowy", 0xFF777777L))
+                    }
+                ) { Text("+ Poziom") }
+            }
 
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(board.tiers.sortedBy { it.position }, key = { it.id }) { tier ->
+                items(saved.board.tiers.sortedBy { it.position }, key = { it.id }) { tier ->
                     TierBoardRow(
-                        label = tier.label,
-                        color = Color(tier.colorArgb.toInt()),
-                        tierId = tier.id,
-                        entries = board.entries.filter { it.tierId == tier.id }
-                            .sortedBy { it.position },
-                        board = board,
-                        names = names,
-                        onMove = { animeId, targetTierId, position ->
-                            history = history.apply(
-                                TierListEditor.moveAnime(board, animeId, targetTierId, position)
-                            )
+                        tier, saved.board.entries.filter { it.tierId == tier.id }.sortedBy { it.position },
+                        saved.anime, saved.board,
+                        onEditTier = { editTier = tier; editTierLabel = tier.label },
+                        onMoveAnime = { id, target, position ->
+                            applyBoard(TierListEditor.moveAnime(saved.board, id, target, position))
                         },
-                        onRemove = { animeId ->
-                            history = history.apply(TierListEditor.removeAnime(board, animeId))
+                        onRemoveAnime = { id -> applyBoard(TierListEditor.removeAnime(saved.board, id)) },
+                        onChoosePoster = { id ->
+                            pendingPosterId = id
+                            posterPicker.launch(arrayOf("image/*"))
                         }
                     )
                 }
-
                 item(key = "unranked") {
                     TierBoardRow(
-                        label = "Do umieszczenia",
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        tierId = null,
-                        entries = board.entries.filter { it.tierId == null }
-                            .sortedBy { it.position },
-                        board = board,
-                        names = names,
-                        onMove = { animeId, targetTierId, position ->
-                            history = history.apply(
-                                TierListEditor.moveAnime(board, animeId, targetTierId, position)
-                            )
+                        Tier("unranked", "Do umieszczenia", 0xFF555555L, Int.MAX_VALUE),
+                        saved.board.entries.filter { it.tierId == null }.sortedBy { it.position },
+                        saved.anime, saved.board,
+                        onEditTier = {},
+                        onMoveAnime = { id, target, position ->
+                            applyBoard(TierListEditor.moveAnime(saved.board, id, target, position))
                         },
-                        onRemove = { animeId ->
-                            history = history.apply(TierListEditor.removeAnime(board, animeId))
+                        onRemoveAnime = { id -> applyBoard(TierListEditor.removeAnime(saved.board, id)) },
+                        onChoosePoster = { id ->
+                            pendingPosterId = id
+                            posterPicker.launch(arrayOf("image/*"))
                         }
                     )
                 }
             }
         }
     }
+
+    val selectedTier = editTier
+    if (selectedTier != null) {
+        AlertDialog(
+            onDismissRequest = { editTier = null },
+            title = { Text("Edytuj poziom " + selectedTier.label) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = editTierLabel,
+                        onValueChange = { editTierLabel = it },
+                        singleLine = true,
+                        label = { Text("Nazwa poziomu") }
+                    )
+                    Text("Kolor")
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        items(TIER_COLORS) { color ->
+                            TextButton(onClick = {
+                                applyBoard(TierListEditor.updateTier(saved.board, selectedTier.id, colorArgb = color))
+                            }) { Text("●", color = Color(color.toInt())) }
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            enabled = selectedTier.position > 0,
+                            onClick = {
+                                applyBoard(TierListEditor.moveTier(saved.board, selectedTier.id, selectedTier.position - 1))
+                            }
+                        ) { Text("↑") }
+                        OutlinedButton(
+                            enabled = selectedTier.position < saved.board.tiers.lastIndex,
+                            onClick = {
+                                applyBoard(TierListEditor.moveTier(saved.board, selectedTier.id, selectedTier.position + 1))
+                            }
+                        ) { Text("↓") }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    runCatching {
+                        applyBoard(TierListEditor.updateTier(saved.board, selectedTier.id, label = editTierLabel))
+                    }
+                    editTier = null
+                }) { Text("Zapisz") }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        if (saved.board.tiers.size > 1) {
+                            applyBoard(TierListEditor.removeTier(saved.board, selectedTier.id))
+                        }
+                        editTier = null
+                    }) { Text("Usuń poziom") }
+                    TextButton(onClick = { editTier = null }) { Text("Anuluj") }
+                }
+            }
+        )
+    }
 }
+
+private val TIER_COLORS = listOf(
+    0xFFE45B5BL, 0xFFFF9848L, 0xFFE7CE56L, 0xFF75B86BL,
+    0xFF5DA5CFL, 0xFF9B80C6L, 0xFF777777L, 0xFF333333L
+)
 
 @Composable
 private fun TierBoardRow(
-    label: String,
-    color: Color,
-    tierId: String?,
+    tier: Tier,
     entries: List<TierEntry>,
+    assets: Map<String, AnimeAsset>,
     board: TierList,
-    names: Map<String, String>,
-    onMove: (String, String?, Int?) -> Unit,
-    onRemove: (String) -> Unit
+    onEditTier: () -> Unit,
+    onMoveAnime: (String, String?, Int?) -> Unit,
+    onRemoveAnime: (String) -> Unit,
+    onChoosePoster: (String) -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.24f))
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color(tier.colorArgb.toInt()).copy(alpha = 0.20f))
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(10.dp),
+            Modifier.fillMaxWidth().padding(10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(label, style = MaterialTheme.typography.titleMedium)
-                Text(
-                    entries.size.toString(),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text(tier.label, style = MaterialTheme.typography.titleMedium)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(entries.size.toString(), style = MaterialTheme.typography.labelLarge)
+                    if (tier.id != "unranked") TextButton(onClick = onEditTier) { Text("Edytuj") }
+                }
             }
             if (entries.isEmpty()) {
-                Text(
-                    "Dodaj anime, aby wypełnić ten poziom",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text("Brak anime", color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall)
             } else {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(entries, key = { it.animeId }) { entry ->
-                        TierEntryChip(
-                            entry = entry,
-                            title = names[entry.animeId] ?: entry.animeId,
-                            tierId = tierId,
-                            board = board,
-                            onMove = onMove,
-                            onRemove = onRemove
+                        AnimeTile(
+                            entry, assets[entry.animeId] ?: AnimeAsset(entry.animeId), board,
+                            onMoveAnime, onRemoveAnime, onChoosePoster
                         )
                     }
                 }
@@ -229,68 +332,67 @@ private fun TierBoardRow(
 }
 
 @Composable
-private fun TierEntryChip(
+private fun AnimeTile(
     entry: TierEntry,
-    title: String,
-    tierId: String?,
+    asset: AnimeAsset,
     board: TierList,
-    onMove: (String, String?, Int?) -> Unit,
-    onRemove: (String) -> Unit
+    onMoveAnime: (String, String?, Int?) -> Unit,
+    onRemoveAnime: (String) -> Unit,
+    onChoosePoster: (String) -> Unit
 ) {
     var expanded by remember(entry.animeId) { mutableStateOf(false) }
-    val currentEntries = board.entries
-        .filter { it.tierId == tierId }
-        .sortedBy { it.position }
-    val currentPosition = currentEntries.indexOfFirst { it.animeId == entry.animeId }
-
-    Column {
-        OutlinedButton(onClick = { expanded = true }) {
-            Text(title, maxLines = 2)
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            board.tiers.sortedBy { it.position }.filter { it.id != tierId }.forEach { tier ->
-                DropdownMenuItem(
-                    text = { Text("Przenieś do " + tier.label) },
-                    onClick = {
-                        onMove(entry.animeId, tier.id, null)
-                        expanded = false
+    val inTier = board.entries.filter { it.tierId == entry.tierId }.sortedBy { it.position }
+    val index = inTier.indexOfFirst { it.animeId == entry.animeId }
+    Card(Modifier.width(112.dp)) {
+        Column(Modifier.padding(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            PosterPreview(asset.posterPath)
+            Text(asset.title, style = MaterialTheme.typography.labelMedium, maxLines = 2,
+                overflow = TextOverflow.Ellipsis)
+            Box {
+                OutlinedButton(onClick = { expanded = true }) { Text("Opcje") }
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    board.tiers.filter { it.id != entry.tierId }.sortedBy { it.position }.forEach { tier ->
+                        DropdownMenuItem(text = { Text("Do " + tier.label) }, onClick = {
+                            onMoveAnime(entry.animeId, tier.id, null); expanded = false
+                        })
                     }
-                )
-            }
-            if (tierId != null) {
-                DropdownMenuItem(
-                    text = { Text("Do nieumieszczonych") },
-                    onClick = {
-                        onMove(entry.animeId, null, null)
-                        expanded = false
+                    if (entry.tierId != null) {
+                        DropdownMenuItem(text = { Text("Nieumieszczone") }, onClick = {
+                            onMoveAnime(entry.animeId, null, null); expanded = false
+                        })
                     }
-                )
-            }
-            if (currentPosition > 0) {
-                DropdownMenuItem(
-                    text = { Text("Przesuń w lewo") },
-                    onClick = {
-                        onMove(entry.animeId, tierId, currentPosition - 1)
-                        expanded = false
+                    if (index > 0) {
+                        DropdownMenuItem(text = { Text("Przesuń w lewo") }, onClick = {
+                            onMoveAnime(entry.animeId, entry.tierId, index - 1); expanded = false
+                        })
                     }
-                )
-            }
-            if (currentPosition >= 0 && currentPosition < currentEntries.lastIndex) {
-                DropdownMenuItem(
-                    text = { Text("Przesuń w prawo") },
-                    onClick = {
-                        onMove(entry.animeId, tierId, currentPosition + 1)
-                        expanded = false
+                    if (index >= 0 && index < inTier.lastIndex) {
+                        DropdownMenuItem(text = { Text("Przesuń w prawo") }, onClick = {
+                            onMoveAnime(entry.animeId, entry.tierId, index + 1); expanded = false
+                        })
                     }
-                )
-            }
-            DropdownMenuItem(
-                text = { Text("Usuń z tierlisty") },
-                onClick = {
-                    onRemove(entry.animeId)
-                    expanded = false
+                    DropdownMenuItem(text = { Text("Dodaj/zmień plakat") }, onClick = {
+                        onChoosePoster(entry.animeId); expanded = false
+                    })
+                    DropdownMenuItem(text = { Text("Usuń z listy") }, onClick = {
+                        onRemoveAnime(entry.animeId); expanded = false
+                    })
                 }
-            )
+            }
         }
+    }
+}
+
+@Composable
+private fun PosterPreview(path: String?) {
+    val bitmap = remember(path) { path?.let { runCatching { BitmapFactory.decodeFile(it) }.getOrNull() } }
+    if (bitmap != null) {
+        Image(bitmap.asImageBitmap(), "Plakat anime", Modifier.fillMaxWidth().height(132.dp))
+    } else {
+        Box(
+            Modifier.fillMaxWidth().height(132.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp)),
+            contentAlignment = Alignment.Center
+        ) { Text("Brak plakatu", style = MaterialTheme.typography.labelSmall) }
     }
 }
