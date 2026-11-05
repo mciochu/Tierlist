@@ -61,6 +61,28 @@ class TierListEditorTest {
     }
 
     @Test
+    fun tiersCanBeInsertedMovedAndRenamed() {
+        var list = newList()
+        list = TierListEditor.addTier(list, "f", "F", 0xFF333333L, 2)
+
+        assertEquals(
+            listOf("S", "A", "F", "B", "C", "D", "E"),
+            list.tiers.sortedBy { it.position }.map { it.label }
+        )
+
+        list = TierListEditor.moveTier(list, "f", 0)
+        list = TierListEditor.updateTier(list, "f", label = "Custom", colorArgb = 0xFF112233L)
+
+        assertEquals("Custom", list.tiers.first().label)
+        assertEquals(0xFF112233L, list.tiers.first().colorArgb)
+        assertEquals(0, list.tiers.first().position)
+        assertEquals(
+            listOf(0, 1, 2, 3, 4, 5, 6),
+            list.tiers.map { it.position }
+        )
+    }
+
+    @Test
     fun historySupportsUndoRedoAndClearsRedoAfterNewEdit() {
         val initial = newList()
         val added = TierListEditor.addAnime(initial, "anime-1", "s")
