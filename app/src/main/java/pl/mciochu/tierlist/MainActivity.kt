@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -129,11 +130,18 @@ class MainActivity : ComponentActivity() {
 private fun TierBoardScreen(context: Context, onProjectionUpdate: (SavedEditor) -> Unit) {
     val storage = remember { LocalBoardStorage(context) }
     val initial = remember {
-        storage.load() ?: SavedEditor(
+        val loaded = storage.load()
+        val preferences = context.getSharedPreferences("tier_board", Context.MODE_PRIVATE)
+        val hasSeededDemoData = preferences.getBoolean("sample_data_initialized", false)
+        val base = loaded ?: SavedEditor(
             TierList.createDefault("local-board", "Moja tierlista"),
             emptyMap(),
             1
         )
+        val shouldSeedDemo = !hasSeededDemoData &&
+            (loaded == null || (loaded.board.entries.isEmpty() && loaded.anime.isEmpty()))
+        preferences.edit().putBoolean("sample_data_initialized", true).apply()
+        if (shouldSeedDemo) createSampleEditor(base) else base
     }
     var saved by remember { mutableStateOf(initial) }
     var history by remember { mutableStateOf(TierListHistory(initial.board)) }
@@ -194,8 +202,11 @@ private fun TierBoardScreen(context: Context, onProjectionUpdate: (SavedEditor) 
                     )
                 }
                 Box {
-                    TextButton(onClick = { menuExpanded = true }) {
-                        Text("⋮", style = MaterialTheme.typography.headlineMedium)
+                    OutlinedButton(
+                        onClick = { menuExpanded = true },
+                        modifier = Modifier.height(38.dp)
+                    ) {
+                        Text("MENU")
                     }
                     DropdownMenu(
                         expanded = menuExpanded,
@@ -521,6 +532,29 @@ private fun TierBoardScreen(context: Context, onProjectionUpdate: (SavedEditor) 
             }
         )
     }
+}
+
+private fun createSampleEditor(base: SavedEditor): SavedEditor {
+    val samples = listOf(
+        Triple("demo-spice-and-wolf", AnimeAsset("Spice and Wolf"), "s"),
+        Triple("demo-frieren", AnimeAsset("Frieren: Beyond Journey's End"), "a"),
+        Triple("demo-bocchi", AnimeAsset("Bocchi the Rock!"), "b"),
+        Triple("demo-steins-gate", AnimeAsset("Steins;Gate"), "c"),
+        Triple("demo-fullmetal", AnimeAsset("Fullmetal Alchemist: Brotherhood"), "d")
+    )
+    var board = base.board
+    val anime = base.anime.toMutableMap()
+    samples.forEach { (id, asset, tierId) ->
+        anime[id] = asset
+        if (board.entries.none { it.animeId == id }) {
+            board = TierListEditor.addAnime(board, id)
+            board = TierListEditor.moveAnime(board, id, tierId)
+        }
+    }
+    return base.copy(
+        board = board,
+        anime = anime
+    )
 }
 
 private fun recordPositionChanges(
