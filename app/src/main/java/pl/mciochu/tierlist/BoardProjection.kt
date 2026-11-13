@@ -36,8 +36,6 @@ class BoardProjection(
     }
 
     private fun render() {
-        val density = context.resources.displayMetrics.density
-        fun dp(value: Int) = (value * density).toInt()
         fun text(value: String, size: Float, color: Int, bold: Boolean = false) =
             TextView(context).apply {
                 text = value
@@ -96,6 +94,9 @@ class BoardProjection(
         ))
         setContentView(root)
     }
+
+    private fun dp(value: Int): Int =
+        (value * context.resources.displayMetrics.density).toInt()
 
     private fun createTierRow(
         label: String,
