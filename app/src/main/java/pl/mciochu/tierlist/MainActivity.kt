@@ -278,7 +278,6 @@ private fun TierBoardScreen(context: Context, onProjectionUpdate: (SavedEditor) 
                             pendingPosterId = id
                             posterPicker.launch(arrayOf("image/*"))
                         },
-                        positionHistory = saved.positionHistory,
                         onShowStats = { selectedAnimeId = it }
                     )
                 }
