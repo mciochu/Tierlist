@@ -187,7 +187,7 @@ private fun TierBoardScreen(context: Context, onProjectionUpdate: (SavedEditor) 
     }
 
     Surface(Modifier.fillMaxSize(), color = Color(0xFF101216)) {
-        Column(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().statusBarsPadding()) {
             Row(
                 Modifier.fillMaxWidth().height(46.dp).padding(horizontal = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
